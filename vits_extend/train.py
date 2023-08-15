@@ -275,7 +275,7 @@ def train(rank, args, chkpt_path, hp, hp_str):
             logger.info("Saved checkpoint to: %s" % save_path)
 
         if rank == 0:
-            def clean_checkpoints(path_to_models=f'{pth_dir}', n_ckpts_to_keep=hp.log.keep_ckpts, sort_by_time=True):
+            def clean_checkpoints(path_to_models=pth_dir, n_ckpts_to_keep=hp.log.keep_ckpts, sort_by_time=True):
                 """Freeing up space by deleting saved ckpts
                 Arguments:
                 path_to_models    --  Path to the model directory
@@ -285,26 +285,21 @@ def train(rank, args, chkpt_path, hp, hp_str):
                                       False -> lexicographically delete ckpts
                 """
                 assert isinstance(n_ckpts_to_keep, int) and n_ckpts_to_keep >= 0
-                ckpts_files = [f for f in os.listdir(path_to_models) if os.path.isfile(os.path.join(path_to_models, f))]
-                name_key = (lambda _f: int(re.compile(f'{args.name}_(\d+)\.pt').match(_f).group(1)))
-                time_key = (lambda _f: os.path.getmtime(os.path.join(path_to_models, _f)))
+                ckpts_files = glob.glob(os.path.join(path_to_models, f'{args.name}_*.pt'))
+                ckpts_files.remove(os.path.join(path_to_models, f'{args.name}_0.pt'))
+                time_key = (lambda _f: os.path.getmtime(_f))
+                name_key = (lambda _f: int(_f.split('_')[-1].split('.')[0]))
                 sort_key = time_key if sort_by_time else name_key
-                x_sorted = lambda _x: sorted(
-                    [f for f in ckpts_files if f.startswith(_x) and not f.endswith('sovits5.0_0.pth')], key=sort_key)
-                if n_ckpts_to_keep == 0:
-                    to_del = []
-                else:
-                    to_del = [os.path.join(path_to_models, fn) for fn in x_sorted(f'{args.name}')[:-n_ckpts_to_keep]]
+                to_del = sorted(ckpts_files, key=sort_key, reverse=True)[n_ckpts_to_keep:]
                 del_info = lambda fn: logger.info(f"Free up space by deleting ckpt {fn}")
                 del_routine = lambda x: [os.remove(x), del_info(x)]
                 rs = [del_routine(fn) for fn in to_del]
 
-            clean_checkpoints()
-
-            os.makedirs(f'{pth_dir}', exist_ok=True)
+            os.makedirs(pth_dir, exist_ok=True)
             keep_ckpts = getattr(hp.log, 'keep_ckpts', 0)
+            
             if keep_ckpts > 0:
-                clean_checkpoints(path_to_models=f'{pth_dir}', n_ckpts_to_keep=hp.log.keep_ckpts, sort_by_time=True)
+                clean_checkpoints(path_to_models=pth_dir, n_ckpts_to_keep=hp.log.keep_ckpts, sort_by_time=True)
 
         scheduler_g.step()
         scheduler_d.step()
