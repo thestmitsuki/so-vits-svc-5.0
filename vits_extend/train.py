@@ -279,21 +279,18 @@ def train(rank, args, chkpt_path, hp, hp_str):
                 """Freeing up space by deleting saved ckpts
                 Arguments:
                 path_to_models    --  Path to the model directory
-                n_ckpts_to_keep   --  Number of ckpts to keep, excluding sovits5.0_0.pth
-                                      If n_ckpts_to_keep == 0, do not delete any ckpts
+                n_ckpts_to_keep   --  Number of ckpts to keep
                 sort_by_time      --  True -> chronologically delete ckpts
                                       False -> lexicographically delete ckpts
                 """
                 assert isinstance(n_ckpts_to_keep, int) and n_ckpts_to_keep >= 0
                 ckpts_files = glob.glob(os.path.join(path_to_models, f'{args.name}_*.pt'))
-                ckpts_files.remove(os.path.join(path_to_models, f'{args.name}_0.pt'))
                 time_key = (lambda _f: os.path.getmtime(_f))
                 name_key = (lambda _f: int(_f.split('_')[-1].split('.')[0]))
                 sort_key = time_key if sort_by_time else name_key
                 to_del = sorted(ckpts_files, key=sort_key, reverse=True)[n_ckpts_to_keep:]
                 del_info = lambda fn: logger.info(f"Free up space by deleting ckpt {fn}")
                 del_routine = lambda x: [os.remove(x), del_info(x)]
-                rs = [del_routine(fn) for fn in to_del]
 
             os.makedirs(pth_dir, exist_ok=True)
             keep_ckpts = getattr(hp.log, 'keep_ckpts', 0)
